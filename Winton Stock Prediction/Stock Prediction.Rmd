@@ -1,0 +1,256 @@
+---
+title: "Stock Prediction"
+author: "Arjun Chattoraj"
+date: "June 21, 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+## Introduction
+
+This is a document consisting of statistical analysis of the *Winton Stock Market Challenge* dataset from **Kaggle**.
+The competition is located at the link: https://www.kaggle.com/c/the-winton-stock-market-challenge.
+
+Packages used in this project are loaded in as they are used.
+
+***
+
+## The dataset
+
+Loading in the data. Working directory is set to where the data sets are kept.
+
+```{r}
+train <- read.csv("train.csv")
+```
+
+```{r}
+paste("rows: ", nrow(train), "; columns:", ncol(train))
+```
+
+### The rows
+
+With 40000 rows, the question is: what are they or what do they represent?
+
+The competition over on Kaggle states *Each row in the dataset is an arbitrary stock at an arbitrary 5 day time window.*
+
+### The columns
+
+There are 211 columns. The column headers are:
+
+```{r}
+colnames(train)
+```
+
+Features 1 ... 25 are unspecified variables, and each may or may not be important.
+Some of these are categorical, and others are continuous. 
+
+Ret_MinusTwo & Ret_MinusOne are the returns of the previous two days.
+
+Ret_1 ... Return_180 are the minute by minute returns for each stock.
+
+Ret_PlusOne & Ret_PlusTwo are the returns of the next two days.
+
+When building the model, we only use Ret_MinusTwo, Ret_MinusOne, Ret_1 ... Ret_120.
+The remaining, so Ret_121 ... Ret_180, Ret_PlusOne, Ret_PlusTwo are the target variables.
+
+The weights are needed to calculate the *Weighted Mean Absolute Error*, 
+which is the stated metric that we are trying to minimize.
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+train %>%
+    select(starts_with("Feature")) %>%
+    summary()
+```
+
+So, as can be seen, all the Features have NA values. This needs to be dealt with.
+
+```{r}
+options(max.print = 999999)
+```
+
+```{r}
+train %>%
+    select(starts_with("Ret")) %>%
+    summary()
+```
+
+Many of the Returns from minute 2 to 120 have NA values. However, none of the Daily Return variables have NA values.
+
+## Dealing with missing values
+
+### In Feature variables
+
+Let's make a copy of the dataset first before modifying anything
+
+```{r}
+train1 <- train
+```
+
+
+For the feature variables, the approach will depend on whether or not whether they a discrete or continuous.
+
+For *discrete* columns, we can impute a value that is the smallest. 
+
+```{r}
+for(col in train1 %>% select(starts_with("Feature")) %>% colnames()){
+    na.vec = which(is.na(train1[col]))
+    if(length(na.vec) != 0){ 
+        if(all(train1[-na.vec,col] == floor(train1[-na.vec,col]))){
+            train1[na.vec, col] = min(train1[col], na.rm = TRUE) - 1
+        } else {
+            train1[na.vec, col] = mean(train1[-na.vec, col])
+        }
+    }
+}
+```
+
+
+### In Ret variables
+
+When looking at the summary statistics for the return variables, it can be seen that the minute-by-minute variables are all very small, and all of them have a mean of 0.Since these are also all continuous variables, we can impute missing values with the mean.
+
+```{r}
+for(col in train1 %>% select(starts_with("Ret")) %>% colnames()){
+    na.vec = which(is.na(train1[col]))
+    if(length(na.vec) != 0){
+        train1[na.vec, col] = mean(train1[-na.vec, col])
+    }
+}
+```
+
+
+## Correlation visualization
+
+```{r}
+library(corrplot)
+```
+
+```{r}
+feat.corr = train1 %>%
+                select(starts_with("Feat")) %>%
+                cor()
+
+corrplot(feat.corr, method = "color")
+
+```
+
+Looking at this correlation, there is very weak correlation visible for features 7,8,12,15,16.
+Feature 10 also shows weak correlation. 
+Dropping any features at first may not be the best strategy.
+
+I think it's also best to set the previously note integer-type features as factors.
+
+```{r}
+for(col in train1 %>% select(starts_with("Feature")) %>% colnames()){
+    if(col == "Feature_7" | col == "Feature_9"){
+        if(all(train1[,col]) == floor(train1[,col])){
+            train1[,col] <- as.factor(train1[,col])
+        }
+    }
+}
+
+```
+
+
+## Predictive modelling
+
+### Split dataset
+
+We can perform a 70:30 split.
+This will make 28000 rows for training and 12000 rows for testing.
+
+```{r}
+testing.cols = rep(0,62)
+testing.weights = rep(0,62)
+
+for(n in 1:62){
+    if(n == 62){
+        testing.cols[n] = "Ret_PlusTwo"
+        testing.weights[n] = "Weight_Daily"
+    } else if(n == 61) {
+        testing.cols[n] = "Ret_PlusOne"
+        testing.weights[n] = "Weight_Daily"
+    } else {
+        testing.cols[n] = paste("Ret_", 120+n)
+        testing.weights[n] = "Weight_Intraday"
+    }
+}
+```
+
+Here is the partitioning of the training and testing of the train1 dataset
+
+```{r}
+set.seed = 7
+train.size = floor(0.70 * nrow(train1))
+
+index = sample(seq_len(nrow(train1)), size = train.size)
+
+train.set = train1[index,]
+test.set = train1[-index,]
+
+```
+
+
+```{r}
+library(randomForest)
+```
+
+```{r}
+
+preds = rep(0,27)
+
+for(i in 1:27){
+    if(i == 27){
+        preds[i] = "Ret_MinusOne"
+    } else if(i == 26){
+        preds[i] = "Ret_MinusTwo"
+    } else {
+        preds[i] = paste("Feature_",i,sep = "")
+    }
+}
+```
+
+`do.trace` was included to note how many trees are made for the random forest model
+
+```{r}
+preds1 = c("Ret_MinusTwo","Ret_MinusOne")
+targs1 = c("Ret_PlusOne", "Ret_PlusTwo")
+
+set.seed = 10
+
+fitRF1 <- randomForest(Ret_PlusOne ~ Feature_1 + Feature_2 + Feature_3 + Feature_4 + Feature_5 + 
+                                   Feature_6 + Feature_7 + Feature_8 + Feature_9 + Feature_10 +
+                                   Feature_11 + Feature_12 + Feature_13 + Feature_14 + Feature_15 +
+                                   Feature_16 + Feature_17 + Feature_18 + Feature_19 + Feature_20 +
+                                   Feature_21 + Feature_22 + Feature_23 + Feature_24 + Feature_25 +
+                                   Ret_MinusTwo + Ret_MinusOne, data = train.set, do.trace = TRUE)
+```
+
+```{r}
+PlusOne.predicted = predict(fitRF1,test.set)
+```
+
+We need the Weighted Mean Absolute Error. 
+So, here is a  function to calculate it, given the actual values, the predicted values and the weights.
+```{r}
+wmae = function(actual, predicted, weights){
+    abs.diff = abs(actual - predicted)
+    return(sum(weights*abs.diff)/length(predicted))
+}
+```
+
+```{r}
+wmae(test.set["Ret_PlusOne"],PlusOne.predicted,test.set["Weight_Daily"])
+```
+
+
+
+
+
+
+

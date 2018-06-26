@@ -36,3 +36,8 @@ if playlist_choice == "Other":
 	print("Among the other choices, you will be shuffling through: " + other_choice)
 
 print("Enjoy your listening!")
+
+# Next line included in order to not close the program directly
+# in case playlist.py is directly opened with Python 
+# instead of through the command line.
+input()

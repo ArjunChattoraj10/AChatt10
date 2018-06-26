@@ -1,5 +1,7 @@
 # README
 
+This program is made with **Python 3.6.1**
+
 This is a playlist chooser.
 
 Choices are tough, so I made a program that contains the names of all my playlists, so that the computer can make the choice for me.

@@ -1,0 +1,18 @@
+The basic plan to start any data analysis project:
+
+1. Find names of columns and how many rows
+2. Use summary() to find descriptive statistics of each row. This will also reveal the number of missing values you have.
+3. Impute missing values
+	- Make a new category for categorical variables
+	- Replace with mean for continuous ones
+	- Replace with min-1 for discrete ones
+4. Make a baseline model. This should be simple. Examples:
+	- Repeating the most common value
+	- Guessing for discrete variables based on proportion of responses
+	- Plot the mean.
+5. Make a slightly less simple model. Make it a linear regression.
+6. Start building more complex models. 
+	- Logistic Regression
+	- Decision Trees
+	- XGB Boost
+7. Start fine-tuning. Use data visualization.

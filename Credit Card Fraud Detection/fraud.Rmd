@@ -1,0 +1,251 @@
+---
+title: "Fraud"
+author: "Arjun Chattoraj"
+output: html_document
+---
+
+## 1 Introduction
+
+This document presents an analysis of the *Credit Card Fraud Detection* dataset from **Kaggle**. The document is created using R Markdown and all code uses `r R.version.string`. The link to the dataset is: 
+
+The Working Directory has been set to the folder that contains the `creditcard.csv` dataset.
+
+### 1.1 Libraries
+
+```{r}
+library(tidyverse)
+library(corrplot)
+library(rpart)
+library(rpart.plot)
+library(caTools)
+library(caret)
+library(e1071)
+library(randomForest)
+```
+
+
+## 2 The dataset
+
+### 2.1 Loading the data
+
+Let's start by reading in the dataset into our workspace.
+
+```{r}
+creditcard = read.csv("creditcard.csv")
+```
+
+### 2.2 Describing the data
+
+This dataset has `r nrow(creditcard)` rows and `r ncol(creditcard)` columns. 
+This is a substantial dataset, so we should look at the head and see how we can start.
+
+```{r}
+head(creditcard)
+colnames(creditcard)
+```
+
+The interesting thing to note is that the columns of factors are only noted as $V_n$ so we cannot use intuition to find link between variables, but use the relationships between each to try to do any analysis.
+
+Another thing to notice is that the times are often repeated, but are not continuous. 
+
+The last column, class states if the row is one of fraud or not. 
+
+Let's use the *summary* function to check for missing values
+
+```{r}
+summary(creditcard)
+```
+
+**There are no missing values!**
+
+## 3 Data Management
+
+### 3.1 Dealing with missing values
+
+**_LOL_**
+
+### 3.2 Labeling factors
+
+```{r}
+creditcard$Class <- as.factor(creditcard$Class)
+```
+
+## 4 Data visualization
+
+### 4.1 Correlation
+
+We'll look at the correlation between variables.
+
+```{r}
+corr.mat = creditcard %>%
+                select(starts_with("V")) %>%
+                cor()
+
+corrplot(corr.mat, method = "color")
+```
+
+Okay, the variables are utterly uncorrelated.
+
+## 5 Predictive modelling
+
+### 5.1 Train/test split
+
+We need to split the data into one training dataset and one testing dataset.
+We'll keep it a typical 70/30 split.
+
+```{r}
+set.seed(7)
+splitData <- sample.split(creditcard$Class, SplitRatio = 0.7)
+train <- subset(creditcard, splitData == T)
+test <- subset(creditcard, splitData == F)
+
+table(test$Class)
+```
+
+### 5.2 Baseline accuracy
+
+Baseline accuracy is the accuracy that you get when you simply predict every test instance as the majority class. Here the majority class is 0. So if we predict all the 3148 test cases as 0 we would get it right 3000/3148 times.
+
+The baseline accuracy is an overly simplistic model. 
+This model basically guesses the majority class every time.
+So, the accuracy is basically the number of 1's in the dataset.
+
+```{r}
+sum(test$Class == 0)/length(test$Class)
+```
+
+With a seed of 7, the baseline accuracy is 99.82679%
+
+### 5.3 Accuracy function
+
+We also need an accuracy function.
+This is fairly simple to write. 
+If we are given two vectors of binary data, we can simply find the number of times the values are different.
+We can make it so that we return the accuracy in a nice format.
+
+```{r}
+accuracy = function(predicted, testing){
+    acc = sum(predicted == testing)/length(testing) * 100
+    paste0("The accuracy of this model is: ", acc, "%")
+}
+```
+
+Let's do a quick test with the baseline model
+
+```{r}
+baseline = rep(0,length(test$Class))
+
+accuracy(baseline,test$Class)
+```
+
+Cool. It matches. Let's move on.
+
+### 5.4 Random guess
+
+#### 5.4.1 Without replacement
+
+This model looks at the percent of 0's and 1's in the training data,
+and randomly guesses whether it is a 0 or 1.
+
+```{r}
+zeros.per = sum(train$Class == 0)/length(train$Class)
+per.vec = c(rep(0,length(test$Class)*zeros.per+1),rep(1,length(test$Class)*(1-zeros.per)))
+
+rand1 = sample(per.vec,length(per.vec),replace = FALSE)
+```
+
+#### 5.4.2 Accuracy test
+
+```{r}
+accuracy(rand1,test$Class)
+```
+
+
+#### 5.4.3 With replacement
+
+```{r}
+rand2 = sample(per.vec,length(per.vec),replace = TRUE)
+```
+
+#### 5.4.2 Accuracy test
+
+```{r}
+accuracy(rand2,test$Class)
+```
+
+Well then, seems like guessing is a worse choice than saying they are all 0.
+
+### 5.5 Logistic Regression model
+
+```{r}
+glm.model <- glm(Class ~ ., data = train, family = "binomial")
+glm.predict = predict(glm.model, test, type = "response")
+
+glm.predict.binary = rep(0,length(glm.predict))
+for(i in 1:length(glm.predict)){
+    if(glm.predict[i] > 0.5){
+        glm.predict.binary[i] = 1
+    } else {
+        glm.predict.binary[i] = 0
+    }
+}
+    
+table(test$Class, glm.predict > 0.5)
+```
+
+#### 5.5.1 Accuracy
+
+```{r}
+accuracy(glm.predict.binary,test$Class)
+```
+
+### 5.6 Decision Tree model
+
+
+```{r}
+DT <- rpart(Class ~ ., data = train, method = "class")
+```
+
+Plot of the Decision Tree
+
+```{r}
+prp(DT)
+```
+
+```{r}
+DT.predict = predict(DT, test, type = "class")
+```
+
+#### 5.6.1 Accuracy
+
+```{r}
+accuracy(DT.predict, test$Class)
+```
+
+```{r}
+confusionMatrix(test$Class, DT.predict)
+```
+
+## 6 Conclusions
+
+This dataset was helpful for me. 
+As this is one of the earliest model building exercises I have undertaken,
+it was very useful in learning about different models,
+and also developing strategies in model building.
+
+However, I am more than aware that there is a **major** flaw in the methods used.
+Due to the unbalanced nature of the dataset (with so many 0 values vs 1 values)
+It is incredible easy to get high accuracy rates, so other methods need to be taken.
+
+One could be partitioning the data more. 
+If the ratio of 0's to 1's is lowered, we can get a better understanding of what causes the 1's.
+
+Also, there are other methods. Many on *Kaggle* have listed methods called *SMOTE*, or *ROSE*.
+However, I yet do not have the knowledge of these methods, but I will continue learning
+and educate myself regarding the uses of these models.
+
+At the end of the day, this was a fun experience. It helped me grow and gain experience. 
+
+Massive thanks to Amandeep Rathee. 
+His kernel on Kaggle was helpful in gaining ideas on different models and going through the dataset.
+

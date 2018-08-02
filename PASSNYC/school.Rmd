@@ -1,0 +1,355 @@
+---
+title: "PASSNYC"
+author: "Arjun Chattoraj"
+date: "July 13, 2018"
+output: html_document
+---
+
+# Introduction
+
+This is a dataset available on **PASSNYC** available on *Kaggle*.
+The data set is titled: "PASSNYC: Data Science for Good Challenge"
+The link to the dataset is: https://www.kaggle.com/passnyc/data-science-for-good/kernels
+
+I want to work on this dataset because it seems like a fun challenge and a great learning experience.
+
+Instead of focusing on Machine Learning and model building,
+I want to try my hands on data visualization techniques.
+
+As an up and coming statistician and a data scientist, it is essential to improve in visualization.
+It can help in making models efficient, by establishing patterns early, 
+instead of relying on the computer to make potentially erroneous errors, 
+and removing redundant variables from consideration.
+
+It also looks pretty!
+
+# Packages
+
+```{r, message = F, warning = F}
+library(tidyverse)
+#devtools::install_github('hadley/ggplot2')
+library(ggplot2)
+#devtools::install_github("rstudio/leaflet")
+library(leaflet)
+library(leaflet.minicharts)
+#library(corrplot)
+#devtools::install_github("kassambara/ggcorrplot")
+library(ggcorrplot)
+library(plotly)
+library(data.table)
+library(factoextra)
+```
+
+
+# Loading the data
+
+The working directory is set to where the data files are located.
+
+```{r}
+school <- read.csv("2016 School Explorer.csv")
+shsat <- read.csv("D5 SHSAT Registrations and Testers.csv")
+```
+
+# Data management
+
+There's a few things that are set as factors that need to be numeric
+
+```{r}
+school = school[,-c(1:3)]
+
+school[, sapply(school, class) == 'factor'] <- 
+    as.data.frame(apply(school[, sapply(school, class) == 'factor'],2, 
+                        function(x) gsub("[%$,]", "", x)), stringsAsFactors = FALSE)
+
+school[,c(14:24,26,28,30,32,34,37,38)] <- as.numeric(unlist(school[,c(14:24,26,28,30,32,34,37,38)]))
+```
+
+
+```{r,include = FALSE}
+glimpse(school)
+```
+
+```{r, include = F}
+glimpse(shsat)
+```
+
+# Data visualization
+
+## Using a map
+
+```{r}
+pal1 = colorNumeric(palette =  "Reds", domain = school$Economic.Need.Index)
+econ.index = leaflet(data = school) %>% 
+    addTiles() %>%
+    addProviderTiles(providers$Stamen.TonerLite) %>%
+    addCircles(~Longitude, ~Latitude, radius=~Economic.Need.Index*400, 
+               color = ~pal1(Economic.Need.Index), stroke = TRUE, fillOpacity = 1.0,
+               popup = paste("City:", school$City, "<br>","School:", school$School.Name, "<br>",
+                             "Need Index:", school$Economic.Need.Index),
+               group = "Economic.Need.Index") %>%
+    addLegend("bottomright", pal = pal1, values = ~Economic.Need.Index, 
+              title = "Economic.Need.Index", opacity = 1) %>%
+    setView(mean(school$Longitude), mean(school$Latitude), zoom = 10)
+
+econ.index
+    
+```
+
+```{r}
+pal2 = colorNumeric(palette =  "PRGn", domain = school$School.Income.Estimate)
+income.est = leaflet(data = school) %>% 
+    addTiles() %>%
+    addProviderTiles(providers$CartoDB.Positron) %>%
+    addCircles(~Longitude, ~Latitude,  
+               color = ~pal2(School.Income.Estimate), stroke = TRUE, fillOpacity = 1.0,
+               popup = paste("City:", school$City, "<br>","School:", school$School.Name, "<br>"),
+               group = "School.Income.Estimate") %>%
+    addLegend("bottomright", pal = pal2, values = ~School.Income.Estimate, 
+              title = "School.Income.Estimate", opacity = 1) %>%
+    setView(mean(school$Longitude), mean(school$Latitude), zoom = 10)
+
+income.est
+ 
+```
+
+```{r}
+pal3 = colorNumeric(palette =  "RdYlBu", domain = school$Student.Attendance.Rate)
+att.rate = leaflet(data = school) %>% 
+    addTiles() %>%
+    addProviderTiles(providers$Stamen.Terrain) %>%
+    addCircles(~Longitude, ~Latitude,  
+               color = ~pal3(Student.Attendance.Rate), stroke = TRUE, fillOpacity = 1.0,
+               popup = paste("City:", school$City, "<br>","School:", school$School.Name, "<br>"),
+               group = "Student.Attendance.Rate") %>%
+    addLegend("bottomright", pal = pal3, values = ~Student.Attendance.Rate, 
+              title = "Student.Attendance.Rate", opacity = 1) %>%
+    setView(mean(school$Longitude), mean(school$Latitude), zoom = 10)
+
+att.rate
+ 
+```
+
+It makes sense that lower income schools would have a higher need, as is shown in the graph below.
+But the maps can help us see where.
+They also help us notice how the data matches with location.
+
+Perhaps, we could try using countour maps or heatmaps to see location-based patterns.
+
+# Graphs
+How many of these schools are community Schools?
+
+```{r}
+isComm = sum(school$Community.School. == "Yes")
+notComm = sum(school$Community.School. == "No")
+
+comm.dt = data.frame(Type = c("Community", "Not Community"), 
+                     value = c(isComm*100/(isComm+notComm),notComm*100/(isComm+notComm)))
+
+comm.pie = ggplot(comm.dt, aes(x="", y=value, fill=Type))+
+    geom_bar(width = 1,stat="identity") +
+    coord_polar("y",start = 0) +
+    #scale_fill_manual(values = c("#00BFC4","#F8766D"))+
+    theme_light() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.ticks = element_blank()) +
+    geom_text(aes(y = value/2),label = paste0(round(comm.dt$value, digits = 2),"%")) +
+    ggtitle("Proportion of Community Schools")
+
+comm.pie
+```
+
+***
+
+The ggplot2 version of the pie chart is honestly kind of "hacky". 
+It takes a bar plot and reorganizes it.
+This does not translate well when using ggplotly.
+However, plotly has its own pie chart method, 
+which is much more intuitive than the ggplot2 method.
+
+Just for kicks, I'm going to recreate the same plot using plotly. It's nicer.
+
+```{r}
+school %>%
+    group_by(Community.School.) %>%
+    summarize(count = n()) %>%
+    plot_ly(labels = ~c("Not Community","Community"),
+            values = ~count,
+            type = "pie",
+            marker = list(colors = c("#00BFC4","#F8766D"))) %>%
+    layout(title = "Ratio of Community vs Non-Community Schools",
+           showlegend = T)
+```
+
+That's nicer.
+
+***
+
+```{r}
+text.IvN = paste("City:", school$City, "<br>","School:", school$School.Name, "<br>")
+
+inc.v.need = ggplot(school, aes(School.Income.Estimate, Economic.Need.Index, color = Community.School.,
+                                text = text.IvN)) + 
+    geom_point(size = 0.7)+
+    theme_light()+
+    guides(color = guide_legend(title="Community School?"))+
+    xlab("School Income Estimate")+
+    ylab("Economic Need Index")+
+    ggtitle("Income Estimate vs Need Index")
+
+ggplotly(inc.v.need)
+```
+
+***
+A quick comment on `ggplotly`, because it takes a ggplot2 graph and makes it a plotly graph,
+there are a few things I would like to change but cant because of the differences between the two.
+It's handy to be able to do so, but as a note, I'll stick to using only one from the future,
+probably plotly.
+***
+
+Let's plot a few other things. 
+
+It'd be interesting to see a correlation plot of the numeric data (not the Grade-wise ones though)
+
+```{r}
+school.numeric = school %>%
+                    select(Latitude, Longitude, Economic.Need.Index, School.Income.Estimate,
+                    Percent.ELL, Percent.Asian, Percent.Black, Percent.Hispanic, 
+                    Percent.Black...Hispanic, Percent.White, Student.Attendance.Rate, 
+                    Percent.of.Students.Chronically.Absent, Rigorous.Instruction.., 
+                    Collaborative.Teachers.., Supportive.Environment.., Effective.School.Leadership..,
+                    Strong.Family.Community.Ties.., Trust.., Average.ELA.Proficiency, Average.Math.Proficiency)
+
+corr.mat = cor(school.numeric[complete.cases(school.numeric),])
+
+ggplotly(ggcorrplot(corr.mat, title = "Correlation Matrix", tl.cex = 7))
+```
+
+***
+In reference to my comment above about using ggplotly,
+y'know,
+it has it's uses.
+This correlation plot was cool, but adding text on top was a bit much.
+Adding the interactive features of plotly is handy.
+***
+
+Okay, more things. How many schools per city?
+
+```{r}
+school %>%
+    group_by(City) %>%
+    summarize(count = n()) %>%
+    plot_ly(labels = ~City,
+            values = ~count,
+            type = "pie") %>%
+    layout(title = "Number of schools per city")
+```
+
+Okay, addressing ethinicity.
+
+I wanted to make a map object that produces an ethnicity ratio when you click on a school.
+That seems to be a little too complicated.
+
+One way of presenting this is doing city-wise ethnicity comparisons.
+
+```{r}
+ethnic.city = school %>%
+    gather(c(16:19,21), key = "Ethnicity", value = "Total") %>%
+    group_by(City, Ethnicity) %>% 
+    na.omit() %>%
+    summarise(Percent = round(mean(Total),2)) %>%
+    
+    setDT() %>%
+    dcast(City ~ Ethnicity, value.var = "Percent") 
+
+
+ethnic.city %>%
+    plot_ly(x = ~Percent.Asian, y = ~City, type = 'bar', orientation = 'h', name = "%Asian") %>%
+    add_trace(x = ~Percent.Black, name = "%Black") %>%
+   # add_trace(x = ~Percent.ELL, name = "%ELL") %>%
+    add_trace(x = ~Percent.Hispanic, name = "%Hispanic") %>%
+    add_trace(x = ~Percent.White, name = "%White") %>%
+    
+    layout(barmode = 'stack', xaxis = list(title = ""), yaxis = list(title = "", title))
+
+```
+
+Okay, I don't understand what the problem is bu certain cities' data are not present. One notable exclusion is the Bronx.
+I'm going to redo this in ggplot2
+
+```{r}
+ggplotly(school %>%
+    gather(c(17:19,21), key = "Ethnicity", value = "Total") %>%
+    group_by(City, Ethnicity) %>% 
+    na.omit() %>%
+    summarise(Percent = round(mean(Total),2)) %>%
+    ggplot(aes(City, Percent, fill = Ethnicity)) + 
+    geom_col(position = "fill")+
+    coord_flip())
+    
+```
+
+That seems better,
+
+For the ELL, I want to see if there is a relationship between ELL, School Income and Need Index.
+
+```{r}
+plot_ly(
+    data = school,
+    x = ~Economic.Need.Index, 
+    y = ~School.Income.Estimate,
+    color = ~Percent.ELL,
+    size = ~Percent.Black...Hispanic,
+    text = ~paste("City:", City, "<br>", 
+                  "School:", School.Name, "<br>",
+                  "ENI:", Economic.Need.Index, "<br>",
+                  "Income:", School.Income.Estimate, "<br>",
+                  "%ELL:", Percent.ELL, "%<br>",
+                  "%Black or Hispanic", Percent.Black...Hispanic, "%<br>"),
+    type = "scatter"
+)
+```
+
+I can try clustering
+
+```{r}
+set.seed(7)
+sample.indices = sample(1:nrow(school), 0.10*nrow(school))
+s1 = school[sample.indices,]
+s1 = s1[!duplicated(s1["School.Name"]),]
+
+s1 = s1[,-c(2:13,15,25,27,29,31,33,35,36,39:158)] %>% mutate_if(is.numeric, scale)
+s1[is.na(s1)] = 0
+
+glimpse(s1)
+```
+
+```{r}
+
+res = s1[-1]
+row.names(res) = s1$School.Name
+
+ggplotly(fviz_dist(get_dist(res, stand = TRUE, method = "pearson"), show_labels = F))
+
+```
+
+```{r}
+fviz_nbclust(res, kmeans, method = "gap_stat")
+```
+
+```{r}
+km.res = kmeans(res, 2, nstart = 25)
+
+fviz_cluster(km.res, data = res,
+             ellipse.type = "convex")
+```
+
+
+
+
+
+
+
+
+
+

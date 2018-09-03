@@ -7,7 +7,13 @@ In this repository, you are likely to find files of projects that I am currently
 ## Who am I?
 I am a third year undergraduate student at **Cornell University**,
 pursuing a major in *Biometry and Statistics* and a minor in *Computer Science*.
-I also currently working as an intern at **TCG Digital**.
+
+During the summer of 2018, I worked as an intern at **TCG Digital**. 
+Using R and RStudio, I performed Churn Modeling and Market Basket Analysis on financial datasets.
+
+I am currently working as a **Teaching Assistant** for the course *BTRY 3010 - Biological Statistics I*. 
+I lead labs, in which I guide students through R and RStudio and reinforce statistical concepts learned during lecture.
+I also hold weekly office hours to ensure students gain a complete understanding of the material.
 
 ## What kind of files will be here?
 Since I am a statistics student, many of these files will be regarding data analysis and machine learning.

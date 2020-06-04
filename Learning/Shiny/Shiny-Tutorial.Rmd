@@ -1,0 +1,1145 @@
+---
+title: "Shiny Tutorial"
+author: "Arjun Chattoraj"
+output: html_document
+---
+
+## Preface
+
+Here is a tutorial to cover the basics of Shiny, courtesy of the Shiny tutorial by RStudio: https://shiny.rstudio.com/tutorial/ and shiny.rstudio.com
+
+On the tutorial:
+
+- 0:00 -- Part 1 - *How to build a Shiny App*
+- 42:00 -- Part 2 - *How to customize reactions*
+- 1:32:41 -- Part 3 - *How to customize appearance*
+
+## Building a Shiny App
+
+If you select a code and run it, it will open a browser and execute the app.
+
+The following code is a Template to start **all** Shiny apps.
+
+```{r, eval=FALSE, message=FALSE}
+library(shiny)
+ui <- fluidPage(
+    # *Input() functions
+    # *Output() functions
+)
+
+server <- function(input,output){}
+
+shinyApp(ui = ui, server = server)
+```
+
+
+The `ui` takes in text, input and output functions. A simple webpage that says "Hello World" can be coded in as follows:
+
+```{r, eval=FALSE}
+library(shiny)
+ui <- fluidPage("Hello World")
+server <- function(input,output){}
+shinyApp(ui = ui, server = server)
+```
+
+There are many sliders, buttons, boxes etc. that are all implemented as Input functions.
+
+In order to include a slider, use the `sliderInput()` function:
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    sliderInput(inputId = "num", label = "Choose a number", value = 25, min = 1, max = 100)
+)
+
+server <- function(input,output){}
+
+shinyApp(ui = ui, server = server)
+```
+
+Other examples of input functions are:
+
+- `actionButton()`
+- `submitButton()`
+- `checkboxInput()`
+- `checkboxGroupInput()`
+- `dateInput()`
+- `dateRangeInput()`
+- `fileInput()`
+- `numericInput()`
+- `passwordInput()`
+- `radioButtons()`
+- `selectInput()`
+- `sliderInput()`
+- `textInput()`
+
+All Input functions have a very similar syntax:
+
+`inputfunc(inputId = <unique str>, label = <str to display on webpage>, ...)`
+
+Outputs can be a lot of things. Such as plots, tables, and things you make with R.
+
+Shiny provides some output functions to be placed in `fluidPage()` for different kinds of outputs for different kinds of outputs:
+
+- `dataTable()`
+- `html()`
+- `image()`
+- `plot()`
+- `table()`
+- `text()`
+- `uiOut()`
+- `verbatimText()`
+
+Some basic syntax:
+
+`outputfunc(outputId = <unique str>)`
+
+So, now editing the above code to include an output function:
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    sliderInput(inputId = "num", label = "Choose a number", value = 25, 
+                min = 1, max = 100),
+    plotOutput("hist")
+)
+
+server <- function(input,output){}
+
+shinyApp(ui = ui, server = server)
+```
+
+The above code produces something unimpressive, but the output function reserves space in the app for the plot to be displated. Currently, it just doesn't know what to plot yet. So, you must build the object in the `server` function.
+
+There are **3 rules** to write the `server` function:
+
+1. Save objects to `output$` -- the part after `$` is the `outputId` from the output function.
+
+2. Build objects to display with the `render*()` function. They have the syntax `renderfunc({ ... R code ... })`. 
+
+Render functions are as following:
+
+- `DataTable()`
+- `Image()`
+- `Plot()`
+- `Print()`
+- `Table()`
+- `Text()`
+- `UI()`
+    
+3. Use input values with `input$` followed by the `inputId`
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    sliderInput(inputId = "num", label = "Choose a number", value = 25, 
+                min = 1, max = 100),
+    plotOutput("hist")
+)
+
+server <- function(input,output){
+    output$hist <- renderPlot({
+        title = "Random normal values"
+        hist(rnorm(input$num), main = title, 
+             col = "maroon", border = "white")
+    })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+
+You can share apps over the web. You will need to replace your own computer with a cloud server. However, it is important to have a standard way of placing your files on the cloud. 
+Put all files that your app needs in the **same directory**. 
+
+Put the R script that calls the `shinyApp` must be called **app.R**.
+
+If you need to make a two-file Shiny app on the server, in place of **app.R** you would have the two files with the exact names as follows:
+
+- **ui.R**
+
+```{r, eval=FALSE}
+library(shiny)
+fluidPage(
+    sliderInput(inputId = "num", label = "Choose a number", value = 25, 
+                min = 1, max = 100),
+    plotOutput("hist")
+)
+```
+
+- **server.R**
+
+```{r, eval=FALSE}
+library(shiny)
+server <- function(input,output){
+    output$hist <- renderPlot({
+        title = "100 random normal values"
+        hist(rnorm(input$num), main = title, 
+             col = "maroon", border = "white")
+    })
+}
+```
+
+
+**Note**: if you have your files saved as either app.R or as ui.R and server.R, then R recognizes the Shiny app name format and includes a *Run App* button and allows a dropdown menu to allow you to choose how to display the app.
+
+A simple service to share apps is **shinyapps.io**
+
+As an alternate, you can use **Shiny Server** which is an open-source software to build your own server.
+
+----------------------------------------------------------------------------------
+
+## Customizing Reactions
+
+**Reactivity** is how changes in input objects propagate to output objects.
+
+In Shiny, you can run something after taking in an input, such as some arbitrary code or create secondary objects. You can also introduce something like an *Update* button. And many other things.
+
+*Reactive values* work alongside *reactive function*. Above, the `renderPlot()` function is an example of a reactive function. If you do not use the reactive function with the reactive value, Shiny will display an error message.
+
+Reactivity is a two-step process:
+
+1. Reactive values notify the functions to do their job.
+2. Objects created by reactive functions respond. 
+
+To completely utilize reactivity in Shiny, you make use of 7 functions called the **Reactivity toolkit**. These are:
+
+### 1. `render*()` 
+
+Displays an output
+
+Functionality:
+
+- Within curly braces `{}` put in all your code, just like a code chunk.
+- `render*( { ... } )`
+
+Examples:
+
+- `renderDataTable()`
+- `renderImage()`
+- `renderPlot()`
+- `renderPrint()`
+- `renderTable()`
+- `renderText()`
+- `renderUI()`
+    
+### 2. `reactive()`
+
+Builds a reactive expression that takes input objects and assembles them into an output and makes that output available to use later on in the code by saving it to a variable.
+
+Functionality: 
+
+- Within curly braces `{}` put in all your code, just like a code chunk.
+- `data <- reactive( { ... })`
+
+**Note**:
+
+- Reactive expressions are called like a function without arguments
+- Example: `data()`
+
+### 3. `isolate()`
+
+Essentially the opposite of `reactive()`. It returns the result as a non-reactive value. Changing the input does not immediately change the output.
+
+Functionality: 
+
+- Within curly braces `{}` put in all your code, just like a code chunk.
+- `isolate( { ... })`
+
+### 4. `observeEvent()`
+
+Triggers code on the server side based on changes in the input objects.
+This is code the user will likely never see, but the server does.
+
+Such events use **Action Buttons**:
+
+- `actionButton(inputId = <unique str>, label = <str to display>)`
+
+After including it, use `observeEvent()` to trigger the code associated with the button.
+
+Functionality:
+
+- First argument provide a reactive value or a vector of reactive values to respond to
+- Second argument is a block of code within curly braces `{}`
+    - Observer treats this code like it has been isolated
+- `observeEvent(input$<InputId>, { ... })`
+        
+#### Example
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    actionButton(inputId = "clicks", label = "Click me")
+)
+
+server <- function(input,output){
+    observeEvent(input$clicks, {
+        print(as.numeric(input$clicks))
+    })
+}
+shinyApp(ui = ui, server = server)
+```
+
+The result for this code does not appear in the app but appears in the backend in the R console. It only prints the total number of clicks since starting the app, which is the actual value of the action button.
+
+### 5. `observe()`
+
+It is a parallel to observe event, but the syntax is similar to `render*()`, `reactive()`, `isolate()`
+
+Functionality:
+
+- Within curly braces `{}` put in all your code, just like a code chunk.
+- `observe( { ... })`
+
+`observe()` will rerun the code every time the reactive values in the code block changes.
+
+### 6. `eventReactive()`
+
+This function is used to delay reactions. This function runs the code after some reactive input, such as an action button, is activated. Use this function in conjunction with `isolate()` to only update outputs after clicking the action button. 
+
+Functionality:
+
+- First argument is a reactive value to respond to
+- Second argument is a code block within curly braces `{}`
+- `data <- eventReactive(input$<inputId>, { ... })`
+
+### 7. `reactiveValues()`
+
+Allows you to manage state. Programmatically, you cannot change the reactive values the user specifies. However, in certain cases it is necessary to do so. Shiny provides the option to create your own list of reactive values. 
+
+Functionality:
+
+- Syntax and functionality is very similar to lists in R.
+- (*optional*) elements to add to the list
+- `rv <- reactiveValues(data = ...)`
+
+#### Example
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    actionButton(inputId = "norm", label = "Normal"),
+    actionButton(inputId = "unif", label = "Uniform"),
+    plotOutput("hist")
+)
+
+server <- function(input,output){
+    rv = reactiveValues(data = rnorm(100), col = "maroon")
+    
+    observeEvent(input$norm, {rv$data = rnorm(100)})
+    observeEvent(input$norm, {rv$col = "maroon"})
+    observeEvent(input$unif, {rv$data = runif(100)})
+    observeEvent(input$unif, {rv$col = "dodgerblue"})
+    
+    output$hist = renderPlot({
+        hist(rv$data, col = rv$col, border = "white", 
+             main = "Distribution Histogram")
+    })
+}
+shinyApp(ui = ui, server = server)
+```
+
+
+### Example of developing an app
+
+1. This code chunk has *two* input values of `num` and `title`. Everytime you change the slider or the title, Shiny will rerun the entire code chunk and display the histogram.
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    sliderInput(inputId = "num", 
+                label = "Choose a number", 
+                value = 25, min = 1, max = 100),
+    textInput(inputId = "title",
+              label = "Write a title",
+              value = "Histogram of Random Normal Values"),
+    plotOutput("hist")
+)
+
+server <- function(input,output){
+    output$hist <- renderPlot({
+        hist(rnorm(input$num), main = input$title, 
+             col = "maroon", border = "white")
+    })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+2. This one is similar to the above, but has two output objects: the histogram and a table of summary statistics.
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    sliderInput(inputId = "num", 
+                label = "Choose a number", 
+                value = 25, min = 1, max = 100),
+    textInput(inputId = "title",
+              label = "Write a title",
+              value = "Histogram of Random Normal Values"),
+    plotOutput("hist"),
+    verbatimTextOutput("stats")
+)
+
+server <- function(input,output){
+    output$hist <- renderPlot({
+        hist(rnorm(input$num), main = input$title, 
+             col = "maroon", border = "white")
+    })
+    output$stats = renderPrint({
+        summary(rnorm(input$num))
+    })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+The issue with the above code is that Shiny is calling `rnomr(input$num)` on two separate occasions, hence the summary table *does not* describe the displayed histogram. As such, to fix this, you can create the random numbers first and save it, then use that same object for both the histogram and the summary table.
+
+3. This code corrects the above code to ensure that the summary table and the histogram match by using `reactive()`.
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    sliderInput(inputId = "num", 
+                label = "Choose a number", 
+                value = 25, min = 1, max = 100),
+    textInput(inputId = "title",
+              label = "Write a title",
+              value = "Histogram of Random Normal Values"),
+    plotOutput("hist"),
+    verbatimTextOutput("stats")
+)
+
+server <- function(input,output){
+    data <- reactive({
+        rnorm(input$num)
+    })
+    output$hist <- renderPlot({
+        hist(data(), main = input$title, 
+             col = "maroon", border = "white")
+    })
+    output$stats = renderPrint({
+        summary(data())
+    })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+**Note**: Changing the title *does not* alter the histograms. This is because the input for the histogram and summary are `data()` which uses `input$num` and does not use `input$title`. Hence, the code for `data()` is *not* rerun and the random numbers stay the same. 
+
+There is another issue. When you update the title field, but you type slowly or delay, the displayed title can change before you have finished typing the full title. So, you want to create an app that updates when you are fully done typing, but do not need to do so for the input slider.
+
+4. Fixes the above code to ensure the input does not change before being done by using `isolate()`
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    sliderInput(inputId = "num", 
+                label = "Choose a number", 
+                value = 25, min = 1, max = 100),
+    textInput(inputId = "title",
+              label = "Write a title",
+              value = "Histogram of Random Normal Values"),
+    plotOutput("hist"),
+    verbatimTextOutput("stats")
+)
+
+server <- function(input,output){
+    data <- reactive({
+        rnorm(input$num)
+    })
+    output$hist <- renderPlot({
+        hist(data(), main = isolate({input$title}), 
+             col = "maroon", border = "white")
+    })
+    output$stats = renderPrint({
+        summary(data())
+    })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+So, when the title input is changed, the output does not reflect the changes since we have a non-reactive object and the code does not rerun. It only changes when the input slider value changes. When the input slider is changed, Shiny recognizes the output is out-of-date and so reruns the entire code. Upon doing so, it recognizes the new title change and so the resultant plot has the correct title.
+
+4. This code modifies the above to update the table upon call of an action button instead of just changing the slider.
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    sliderInput(inputId = "num", 
+                label = "Choose a number", 
+                value = 25, min = 1, max = 100),
+    textInput(inputId = "title",
+              label = "Write a title",
+              value = "Histogram of Random Normal Values"),
+    actionButton(inputId = "go",
+                 label = "Update"),
+    plotOutput("hist"),
+    verbatimTextOutput("stats")
+)
+
+server <- function(input,output){
+    data <- eventReactive(input$go, {
+        rnorm(input$num)
+    })
+    output$hist <- renderPlot({
+        hist(data(), main = isolate({input$title}), 
+             col = "maroon", border = "white")
+    })
+    output$stats = renderPrint({
+        summary(data())
+    })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+If you notice, the title is still isolated and only the `input$num` is placed in `eventReactive()`. This code uses the idea that the plot is set to update when the slider value changes. This allows you to use the properties of `reactive()` to save the slider value to a variable while also giving you to rerun the code when the action button is clicked. 
+
+### Tips:
+
+#### Reduce Repetition
+
+When there are many people using your app, multiple R sessions can be created to handle the volume of people. It becomes important to strategically place code so that your code is run as effectively as possible. 
+
+Code outside the `server()` function will be run once **per R session**. So, all the code that only needs to be run once to set up the R session (such as libraries) should be placed outside the server() function within the `ui`.
+
+Code inside the `server()` function will be run once **per user**. So, the more users, the more times your server function will be rerun, thus slowing down the app. So any code that *must* be uniquely run for each user should be within the `server()`, else it should go outside.
+
+Code within a `render*()` function will be rerun once **per reaction**. This code must contain the bare minimum.
+
+#### Understand how reactivity works
+
+Use this website: https://shiny.rstudio.com/articles/understanding-reactivity.html
+
+------------------------------------------------------------------------
+
+## Customizing Appearance
+
+You do not need to know HTML to create Shiny Apps, but HTML is the underlying architecture that builds the apps.
+
+The question is, how do you add content to the webpage. Since we are using R, you can use functions that allow you to add content. These are called **tags**.
+
+The object `tags` is a list of tag types. Although `tags` is a list, the elements themselves are functions. Thus, if you need to use a function, you must provide parenthesis after. Call `names(tag)` to get:
+
+```{r, echo = FALSE}
+library(shiny)
+names(tags)
+```
+
+`tags` functions have their own syntax, as follows:
+
+- `tags$<function>(<named arguments>, <unnamed arguments>)`
+    - named arguments appear as tag attributes
+    - unnamed arguments appear inside the tags
+- example:
+    - `tags$a(href = "https://rstudio.com", "RStudio")`
+    - equivalent to `<a href = "https://rstudio.com">RStudio</a>`
+    
+In a Shiny app's code:
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    tags$a(href = "https://rstudio.com", "RStudio")
+)
+
+server <- function(input,output){}
+
+shinyApp(ui = ui, server = server)
+```
+    
+Another example:
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    tags$p("This is a Shiny app."), 
+    tags$p("This is also a webpage."),
+    tags$p("You can", tags$strong("nest tags"), "inside other tags"),
+    tags$hr(),
+    tags$img(height = 162, width = 288, 
+             src = "https://cdn.theatlantic.com/thumbor/pN25nhF1hatn7QpckNtABKwzmoI=/0x61:1000x624/720x405/media/old_wire/img/upload/2013/03/18/happydog/original.jpg")
+)
+
+server <- function(input,output){}
+
+shinyApp(ui = ui, server = server)
+```
+
+In the above code, we have an image. If you want to use an image from your computer, save it within a folder called **www**. After so, you could just use the file name as the input for the `src` argument (you do not need to put *www*).
+
+Some tags come with wrapper functions, so you do not need `tags$`:
+
+- `a()` - Hyperlink
+- `br()` - Line break
+- `code()` - Text format like computer code
+- `em()` - Italicized text
+- `h1()`, `h2()`, `h3()`, `h4()`, `h5()`, `h6()` - Headers
+- `hr()` - Horizontal line
+- `img()` - Image
+- `p()` - New paragraph
+- `strong()` - Bold text
+
+As a note, you can always just create your app in HTML by saving is as a `.html` file and clicking *Preview* in RStudio:
+
+```{html, eval = FALSE}
+<div class = "container-fluid">
+    <h1> My Shiny App</h1>
+    <p style = "font-family:Impact">See other apps in the 
+        <a href = "https://shiny.rstudio.com/gallery/#user-showcase">Shiny Showcase</a></p>
+</div>
+```
+
+This code in R looks like:
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    h1("My Shiny App"),
+    p(style = "font-family:Impact", "See other apps in the", 
+      a("Shiny Showcase", href = "https://shiny.rstudio.com/gallery/#user-showcase")
+    )
+)
+
+server <- function(input,output){}
+shinyApp(ui = ui, server = server)
+```
+
+But if you want build a Shiny app with HTML, pass in the HTML code as a string into a function called `HTML()` that goes into `fluidPage` as such:
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    HTML(
+        '<div class = "container-fluid">
+            <h1> My Shiny App</h1>
+            <p style = "font-family:Impact">See other apps in the 
+                <a href = "https://shiny.rstudio.com/gallery/#user-showcase">Shiny Showcase</a></p>
+        </div>'
+    )
+)
+
+server <- function(input,output){}
+shinyApp(ui = ui, server = server)
+```
+
+Apart from just *adding elements*, it is important to know how to **create a layout** for your app. To do so, use **layout functions**. The two main functions are:
+
+- `fluidRow()`
+- `column()`
+
+`fluidRow()` adds a new row to the app's grid. Each new row goes below the previous rows.
+
+`column()` adds columns within a row. Each new column goes to the right of the previous column. Specify the `width` and `offset` of each column out of 12. 
+
+To place an element in the grid, call it as an argument of a layout function. 
+
+Using the slider and histogram plot as example:
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    fluidRow(
+        column(3),
+        column(5, sliderInput(inputId = "num", 
+                label = "Choose a number", 
+                value = 25, min = 1, max = 100))
+    ),
+    
+    fluidRow(
+        column(4, offset = 8, plotOutput(outputId = "hist"))
+    )
+)
+
+server <- function(input,output){
+    output$hist <- renderPlot({
+        hist(rnorm(input$num), main = input$title, 
+             col = "maroon", border = "white")
+    })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+Additionally, you can stack layers using **Panels**. You can group together elements into a panel and they act together as a single element. 
+
+`wellPanel()` groups elements into a grey well. 
+
+So, using the histogram generation example, you can group the slider and the title input into one element. Simply surround the objects that you want to group with the `wellPanel()` function to do so. 
+
+```{r}
+library(shiny)
+ui <- fluidPage(
+    wellPanel(
+    sliderInput(inputId = "num", 
+                label = "Choose a number", 
+                value = 25, min = 1, max = 100),
+    textInput(inputId = "title",
+              label = "Write a title",
+              value = "Histogram of Random Normal Values"),
+    actionButton(inputId = "go",
+                 label = "Update")
+    ),
+    
+    plotOutput("hist"),
+    verbatimTextOutput("stats")
+)
+
+server <- function(input,output){
+    data <- eventReactive(input$go, {
+        rnorm(input$num)
+    })
+    output$hist <- renderPlot({
+        hist(data(), main = isolate({input$title}), 
+             col = "maroon", border = "white")
+    })
+    output$stats = renderPrint({
+        summary(data())
+    })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+There are 12 Shiny functions that can be used to make panels:
+
+- `absolutePanel()`
+- `conditionalPanel()`
+- `fixedPanel()`
+- `headerPanel()`
+- `inputPanel()`
+- `navlistPanel()`
+- `sidebarPanel()`
+- `tabPanel()`
+- `tabsetPanel()`
+- `titlePanel()`
+- `wellPanel()`
+
+`tabPanel()` creates a stackable layer of elements. Each tab is like a small UI of its own.
+
+- `tabPanel(<title str>, <elements to add>)`
+
+Combine `tabPanel()` with one of:
+
+- `tabsetPanel()` - Combines tabs into a single panel. Use *tabs* to navigate between tabs.
+- `navlistPanel()` - Combines tabs into a single panel. Use *links* to navigate between tabs.
+- `navbarPage()` - *explained later*
+
+`tabsetPanel()` example:
+
+```{r}
+library(shiny)
+
+ui <- fluidPage(title = "Random generator",
+                tabsetPanel(              
+                    tabPanel(title = "Normal data",
+                             plotOutput("norm"),
+                             actionButton("renorm", "Resample")
+                    ),
+                    tabPanel(title = "Uniform data",
+                             plotOutput("unif"),
+                             actionButton("reunif", "Resample")
+                    ),
+                    tabPanel(title = "Chi Squared data",
+                             plotOutput("chisq"),
+                             actionButton("rechisq", "Resample")
+                    )
+                )
+)
+
+server <- function(input, output) {
+    
+    rv <- reactiveValues(
+        norm = rnorm(500), 
+        unif = runif(500),
+        chisq = rchisq(500, 2))
+    
+    observeEvent(input$renorm, { rv$norm <- rnorm(500) })
+    observeEvent(input$reunif, { rv$unif <- runif(500) })
+    observeEvent(input$rechisq, { rv$chisq <- rchisq(500, 2) })
+    
+    output$norm <- renderPlot({
+        hist(rv$norm, breaks = 30, col = "maroon", border = "white",
+             main = "500 random draws from a standard normal distribution")
+    })
+    output$unif <- renderPlot({
+        hist(rv$unif, breaks = 30, col = "dodgerblue", border = "white",
+             main = "500 random draws from a standard uniform distribution")
+    })
+    output$chisq <- renderPlot({
+        hist(rv$chisq, breaks = 30, col = "chartreuse3", border = "white",
+             main = "500 random draws from a Chi Square distribution with two degree of freedom")
+    })
+}
+
+shinyApp(server = server, ui = ui)
+```
+
+`navlistPanel()` example:
+
+```{r}
+library(shiny)
+
+ui <- fluidPage(title = "Random generator",
+  navlistPanel(              
+    tabPanel(title = "Normal data",
+      plotOutput("norm"),
+      actionButton("renorm", "Resample")
+    ),
+    tabPanel(title = "Uniform data",
+      plotOutput("unif"),
+      actionButton("reunif", "Resample")
+    ),
+    tabPanel(title = "Chi Squared data",
+      plotOutput("chisq"),
+      actionButton("rechisq", "Resample")
+    )
+  )
+)
+
+server <- function(input, output) {
+  
+  rv <- reactiveValues(
+    norm = rnorm(500), 
+    unif = runif(500),
+    chisq = rchisq(500, 2))
+  
+  observeEvent(input$renorm, { rv$norm <- rnorm(500) })
+  observeEvent(input$reunif, { rv$unif <- runif(500) })
+  observeEvent(input$rechisq, { rv$chisq <- rchisq(500, 2) })
+  
+  output$norm <- renderPlot({
+    hist(rv$norm, breaks = 30, col = "maroon", border = "white",
+      main = "500 random draws from a standard normal distribution")
+  })
+  output$unif <- renderPlot({
+    hist(rv$unif, breaks = 30, col = "dodgerblue", border = "white",
+      main = "500 random draws from a standard uniform distribution")
+  })
+  output$chisq <- renderPlot({
+    hist(rv$chisq, breaks = 30, col = "chartreuse3", border = "white",
+       main = "500 random draws from a Chi Square distribution with two degree of freedom")
+  })
+}
+
+shinyApp(server = server, ui = ui)
+```
+
+You can always use pre-packaged layouts provided by Shiny. 
+
+The most common way of building a Shiny app is to use `sidebarLayout()`. Use this function with `sidebarPanel()` and `mainPanel()` to divide app into two sections. Usage:
+
+```{r, eval = FALSE}
+ui <- fluidPage(
+    sidebarLayout(
+        sidebarPanel(),
+        mainPanel()
+    )
+)
+```
+
+Example using the histogram generator:
+
+```{r}
+library(shiny)
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput(inputId = "num", 
+        label = "Choose a number", 
+        value = 25, min = 1, max = 100),
+      textInput(inputId = "title", 
+        label = "Write a title",
+        value = "Histogram of Random Normal Values")
+    ),
+    mainPanel(
+      plotOutput("hist")
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$hist <- renderPlot({
+    hist(rnorm(input$num), main = input$title,
+         col = "maroon", border = "white")
+  })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+On another note, in opposition to `fluidPage()` there is `fixedPage()`. `fluidPage()` adjusts the layout of our app based on the size of our window. `fixedPage()` does the opposite by creating an app of fixed size of one of the following pixel widths: 724, 940, 1170. Naturally, you use `fixedPage()` with `fixedRow()`.
+
+Another panel concept is `navbarPage()`. It requires a `title` and then the panels. The difference now is that instead of a portion of the page being the contents of a tab, the *entire page* is now the contents. Usage:
+
+```{r, eval = FALSE}
+navbarPage(title = <Title str>,
+           tabPanel("Tab 1", <contents>),
+           tabPanel("Tab 2", <contents>),
+           tabPanel("Tab 3", <contents>),
+           ...
+           )
+```
+
+Example:
+
+```{r}
+library(shiny)
+
+ui <- navbarPage(title = "Random generator",
+    tabPanel(title = "Normal data",
+      plotOutput("norm"),
+      actionButton("renorm", "Resample")
+    ),
+    tabPanel(title = "Uniform data",
+      plotOutput("unif"),
+      actionButton("reunif", "Resample")
+    ),
+    tabPanel(title = "Chi Squared data",
+      plotOutput("chisq"),
+      actionButton("rechisq", "Resample")
+    )
+
+)
+
+server <- function(input, output) {
+  
+  rv <- reactiveValues(
+    norm = rnorm(500), 
+    unif = runif(500),
+    chisq = rchisq(500, 2))
+  
+  observeEvent(input$renorm, { rv$norm <- rnorm(500) })
+  observeEvent(input$reunif, { rv$unif <- runif(500) })
+  observeEvent(input$rechisq, { rv$chisq <- rchisq(500, 2) })
+  
+  output$norm <- renderPlot({
+    hist(rv$norm, breaks = 30, col = "maroon", border = "white",
+      main = "500 random draws from a standard normal distribution")
+  })
+  output$unif <- renderPlot({
+    hist(rv$unif, breaks = 30, col = "dodgerblue", border = "white",
+      main = "500 random draws from a standard uniform distribution")
+  })
+  output$chisq <- renderPlot({
+    hist(rv$chisq, breaks = 30, col = "chartreuse3", border = "white",
+       main = "500 random draws from a Chi Square distribution with two degree of freedom")
+  })
+}
+
+shinyApp(server = server, ui = ui)
+```
+
+An addition to this concept is `navbarMenu()`, which can be used in conjunction with `navbarPage()`. Instead of all the tabs being displayed above, a dropdown menu is created from which you can navigate to the other tabs. The other panels within the menu are passed into `navbarMenu()` as arguments. 
+
+So this concept is very useful if you have a lot of tabs and want to reduce clutter on your app.
+
+Example:
+
+```{r}
+library(shiny)
+
+ui <- navbarPage(title = "Random generator",
+  tabPanel(title = "Normal data",
+    plotOutput("norm"),
+    actionButton("renorm", "Resample")
+  ),
+  navbarMenu(title = "Other data",
+    tabPanel(title = "Uniform data",
+      plotOutput("unif"),
+      actionButton("reunif", "Resample")
+    ),
+    tabPanel(title = "Chi Squared data",
+      plotOutput("chisq"),
+      actionButton("rechisq", "Resample")
+    )
+  )
+)
+
+server <- function(input, output) {
+  
+  rv <- reactiveValues(
+    norm = rnorm(500), 
+    unif = runif(500),
+    chisq = rchisq(500, 2))
+  
+  observeEvent(input$renorm, { rv$norm <- rnorm(500) })
+  observeEvent(input$reunif, { rv$unif <- runif(500) })
+  observeEvent(input$rechisq, { rv$chisq <- rchisq(500, 2) })
+  
+  output$norm <- renderPlot({
+    hist(rv$norm, breaks = 30, col = "maroon", border = "white",
+      main = "500 random draws from a standard normal distribution")
+  })
+  output$unif <- renderPlot({
+    hist(rv$unif, breaks = 30, col = "dodgerblue", border = "white",
+      main = "500 random draws from a standard uniform distribution")
+  })
+  output$chisq <- renderPlot({
+    hist(rv$chisq, breaks = 30, col = "chartreuse3", border = "white",
+       main = "500 random draws from a Chi Square distribution with two degree of freedom")
+  })
+}
+
+shinyApp(server = server, ui = ui)
+```
+
+Finally, there is another layout called `dashboardPage()`, which is not part of the `shiny` package, but is present in a package called `shinydashboard` (*you may need to install it*). Its usage is as such:
+
+```{r, eval=FALSE, message=FALSE}
+library(shinydashboard)
+ui <- dashboardPage(
+    dashboardHeader(),
+    dashboardSidebar(),
+    dashboardBody()
+)
+```
+
+The Shiny Dashboard webpage is here: https://rstudio.github.io/shinydashboard/
+
+### CSS
+
+CSS stands for *Cascading Style Sheets* and is a framework for customizing the appearance of elements in a webpage. It takes the basic elements of the app and stylizes it.
+
+There are three main concepts for CSS:
+
+1. Link to an external CSS file
+2. Write global CSS in the header
+3. Write individual CSS in the tag's style attribute
+
+The item's CSS on the bottom overrides the CSS styling defined of an item above.
+
+A simple, text-heavy example of CSS code is as follows with the rendering below:
+
+```{html, eval=FALSE}
+<head>
+  <link type="text/css" rel="stylesheet" href="bootswatch-cerulean.css"/>
+  <style>
+    li {
+      color:purple;
+    }
+    
+    .blue-item {
+      color:blue;
+    }
+    
+    #dark {
+      color:navy;
+    }
+  </style>
+</head>
+
+<div class="container-fluid">
+  <h1>CSS examples</h1>
+  <p>
+    This webpage uses five methods to style the text with CSS. The entire documentis styled with CSS from an external file, bootswatch-cerulean.css, which has been linked to in the document's header section.
+  </p>
+  <ol>
+    <li>The list items are styled with global CSS that is written in the style section of the document's header.</li>
+    <li class="blue-item">This individual item contains additional styling written in the document's header that applies to the item's class. Note that it overrides the global styling.</li>
+    <li id="dark" class="blue-item">This individual item contains additional styling written in the document's header that applies to the item's id. Note that it overrides the global and class styling.</li>
+    <li id="dark" class="blue-item" style="color:green">This individual item contains additional styling written in the document's tag. Note that it overrides the global, class, and id specific styling.</li>
+  </ol>
+  <p>If you would like to learn more about how to write and use CSS, I recommend the <a href="https://www.codecademy.com/learn/learn-css">Codecademy tutorial</a></p>
+</div> 
+```
+
+
+<head>
+  <link type="text/css" rel="stylesheet" href="bootswatch-cerulean.css"/>
+  <style>
+    li {
+      color:purple;
+    }
+    
+    .blue-item {
+      color:blue;
+    }
+    
+    #dark {
+      color:navy;
+    }
+  </style>
+</head>
+
+<div class="container-fluid">
+  <h1>CSS examples</h1>
+  <p>
+    This webpage uses five methods to style the text with CSS. The entire documentis styled with CSS from an external file, bootswatch-cerulean.css, which has been linked to in the document's header section.
+  </p>
+  <ol>
+    <li>The list items are styled with global CSS that is written in the style section of the document's header.</li>
+    <li class="blue-item">This individual item contains additional styling written in the document's header that applies to the item's class. Note that it overrides the global styling.</li>
+    <li id="dark" class="blue-item">This individual item contains additional styling written in the document's header that applies to the item's id. Note that it overrides the global and class styling.</li>
+    <li id="dark" class="blue-item" style="color:green">This individual item contains additional styling written in the document's tag. Note that it overrides the global, class, and id specific styling.</li>
+  </ol>
+  <p>If you would like to learn more about how to write and use CSS, I recommend the <a href="https://www.codecademy.com/learn/learn-css">Codecademy tutorial</a></p>
+</div> 
+
+Shiny applies CSS based on the **Bootstrap 3** class. So, stylizing it yourself requires an understanding of this class and what you should and should not change.
+
+Any external CSS files should be placed in the **www** folder.
+
+1. In order to link to an external CSS folder:
+
+```{r, eval=FALSE}
+ui <- fluidPage(
+    theme = "bootswatch-cerulean.css",
+    sidebarLayout(
+        sidebarPanel(),
+        mainPanel()
+    )
+)
+```
+
+Or, you can use `tags$head()` and `tags$link()`
+
+```{r, eval=FALSE}
+ui <- fluidPage(
+    tags$head(
+        tags$link(
+            rel = "stylesheet",
+            type = "text/css",
+            href = "file.css"
+        )
+    )
+)
+```
+
+2. To use global CSS in the header, use `tags$head()` and `tags$style()` with `HTML()`:
+
+```{r, eval=FALSE}
+ui <- fluidPage(
+    tags$head(
+        tags$style(HTML("
+            p {
+                color:red;
+            }
+            "
+        ))
+    )
+)
+```
+
+Or, save the CSS as a file:
+
+```{r, eval=FALSE}
+ui <- fluidPage(
+    includeCSS("file.css")
+)
+```
+
+3. To write individual CSS, use the argument `style` within the function:
+
+```{r, eval=FALSE}
+ui <- fluidPage(
+    tags$h1("Title", style = "color:red;")
+)
+```
+
+Codeacademy has a free tutorial on HTML and CSS, so using that can be useful for building Shiny apps.

@@ -1,0 +1,41 @@
+---
+author: "Arjun Chattoraj"
+title: "World Cup Data Exploration"
+output: html_notebook
+---
+
+# Introduction
+
+I obtained data regarding the FIFA World Cup from *Kaggle*. The datasets were provided by user Andre Becklas under the title: **FIFA World Cup** - *All the results from World Cups*. The link is: https://www.kaggle.com/abecklas/fifa-world-cup 
+
+This would be a pretty good dataset to do some exploration and analysis. The project is split into two RMarkdown files. This file focuses exclusively on data exploration and the other will deal with model building.
+
+# Libraries used
+
+```{r}
+library(readr)
+```
+
+# Reading in the data
+
+```{r}
+WorldCups = read_csv("WorldCups.csv")
+WorldCupsPlayers = read_csv("WorldCupPlayers.csv")
+WorldCupsMatches = read_csv("WorldCupMatches.csv")
+```
+
+# Data exploration
+
+After reading the data, it's time for some initial explorations.
+
+There are `r nrow(WorldCups)` years of World Cup data.
+The earliest year in the data is the `r min(WorldCups$Year)` World Cup, and
+the latest recording is `r max(WorldCups$Year)`
+
+```{r, echo=F}
+cat("There are",nrow(WorldCups),"years of World Cup data")
+cat("The earliest recording is", min(WorldCups$Year))
+cat("The latest recording is",max(WorldCups$Year))
+```
+
+
